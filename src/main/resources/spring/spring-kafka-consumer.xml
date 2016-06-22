@@ -10,41 +10,59 @@
 		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
 
     <int:channel id="inputFromKafka">
-        <int:queue/>
+        <int:queue />
     </int:channel>
+
+    <int:service-activator input-channel="inputFromKafka" ref="messageProcessor">
+        <int:poller task-executor="kafkaExecutor" fixed-rate="2000" receive-timeout="0"/><!--  cron="*/10 * * * * ?" -->
+    </int:service-activator>
+
+
+
+    <task:executor id="kafkaExecutor" pool-size="0-10"
+                   keep-alive="120" queue-capacity="500" />
+
+    <bean id="consumerProperties" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="properties">
+            <props>
+                <prop key="auto.offset.reset">smallest</prop>
+                <prop key="socket.receive.buffer.bytes">10485760</prop><!-- 10M -->
+                <prop key="fetch.message.max.bytes">5242880</prop><!-- 50M -->
+                <prop key="auto.commit.interval.ms">10000</prop>
+                <!--<prop key="fetch.min.bytes">1</prop>-->
+                <!--<prop key="fetch.wait.max.ms">100</prop>-->
+            </props>
+        </property>
+    </bean>
+
+    <int-kafka:zookeeper-connect id="zookeeperConnect" zk-connect="localhost:2181" zk-connection-timeout="6000"
+                                 zk-session-timeout="6000"
+                                 zk-sync-time="1000"/>
+
+
+    <int-kafka:inbound-channel-adapter id="kafkaInboundChannelAdapter"
+                                       kafka-consumer-context-ref="consumerContext"
+                                       auto-startup="true"
+                                       channel="inputFromKafka">
+        <int:poller fixed-delay="2000" time-unit="MILLISECONDS"/>
+    </int-kafka:inbound-channel-adapter>
+
+    <int-kafka:consumer-context id="consumerContext"
+                                consumer-timeout="4000"
+                                zookeeper-connect="zookeeperConnect" consumer-properties="consumerProperties">
+        <int-kafka:consumer-configurations>
+            <int-kafka:consumer-configuration group-id="default"
+                                              max-messages="500"
+                                              value-decoder="kafkaDecoder">
+                <int-kafka:topic id="test" streams="1"/>
+            </int-kafka:consumer-configuration>
+        </int-kafka:consumer-configurations>
+    </int-kafka:consumer-context>
+
 
     <bean id="verifiableProperties" class="kafka.utils.VerifiableProperties"/>
     <bean id="kafkaDecoder" class="kafka.serializer.StringDecoder">
         <constructor-arg name="props" ref="verifiableProperties"></constructor-arg>
-    </bean>
-
-    <int-kafka:message-driven-channel-adapter payload-decoder="kafkaDecoder"
-                                              id="kafkaListener"
-                                              listener-container="container1"
-                                              auto-startup="true"
-                                              phase="100"
-                                              send-timeout="5000"
-                                              channel="inputFromKafka"
-                                              error-channel="errorChannel"/>
-
-    <bean id="container1" class="org.springframework.integration.kafka.listener.KafkaMessageListenerContainer">
-        <constructor-arg name="connectionFactory">
-            <bean class="org.springframework.integration.kafka.core.DefaultConnectionFactory">
-                <constructor-arg>
-                    <bean class="org.springframework.integration.kafka.core.BrokerAddressListConfiguration">
-                        <constructor-arg>
-                            <list>
-                                <bean class="org.springframework.integration.kafka.core.BrokerAddress">
-                                    <constructor-arg name="host" value="localhost"></constructor-arg>
-                                    <constructor-arg name="port" value="9092"></constructor-arg>
-                                </bean>
-                            </list>
-                        </constructor-arg>
-                    </bean>
-                </constructor-arg>
-            </bean>
-        </constructor-arg>
-        <constructor-arg name="topics" value="test"/>
     </bean>
 
 </beans>

@@ -9,37 +9,32 @@
 		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
 		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
 
-    <int:channel id="inputToKafka">
-        <int:queue/>
-    </int:channel>
+    <int:publish-subscribe-channel id="inputToKafka"/>
 
     <int-kafka:outbound-channel-adapter
-            id="kafkaOutboundChannelAdapter"
             kafka-producer-context-ref="kafkaProducerContext"
             auto-startup="true"
             channel="inputToKafka"
-            topic-expression="headers.kafka_topic != null ? headers.kafka_topic : 'test'"
-            message-key-expression="headers.kafka_messageKey"
-            partition-id-expression="0"
+            order="1"
             >
-        <int:poller fixed-delay="1000" time-unit="MILLISECONDS" receive-timeout="0" task-executor="taskExecutor"/>
     </int-kafka:outbound-channel-adapter>
 
-    <task:executor id="taskExecutor" pool-size="5" keep-alive="120" queue-capacity="500"/>
-
-    <int-kafka:producer-context id="kafkaProducerContext" producer-properties="producerProperties"><!---->
+    <int-kafka:producer-context id="kafkaProducerContext" producer-properties="producerProperties">
         <int-kafka:producer-configurations>
             <int-kafka:producer-configuration broker-list="localhost:9092"
                                               key-class-type="java.lang.String"
                                               value-class-type="java.lang.String"
                                               topic="test"
-                                              key-serializer="kafkaEncoder"
-                                              value-serializer="kafkaEncoder"
+                                              key-encoder="kafkaEncoder"
+                                              value-encoder="kafkaEncoder"
                                               compression-type="none"/>
         </int-kafka:producer-configurations>
     </int-kafka:producer-context>
 
-    <bean id="kafkaEncoder" class="org.apache.kafka.common.serialization.StringSerializer"/>
+    <bean id="verifiableProperties" class="kafka.utils.VerifiableProperties"/>
+    <bean id="kafkaEncoder" class="kafka.serializer.StringEncoder">
+        <constructor-arg name="props" ref="verifiableProperties"></constructor-arg>
+    </bean>
 
     <bean id="producerProperties" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
         <property name="properties">
@@ -47,9 +42,6 @@
                 <prop key="topic.metadata.refresh.interval.ms">3600000</prop>
                 <prop key="message.send.max.retries">5</prop>
                 <prop key="send.buffer.bytes">5242880</prop>
-                <prop key="serializer.class">kafka.serializer.StringEncoder</prop>
-                <prop key="request.required.acks">1</prop>
-                <prop key="producer.type">sync</prop>
             </props>
         </property>
     </bean>
