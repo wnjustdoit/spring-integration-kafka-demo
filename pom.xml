@@ -16,7 +16,7 @@
         <version.aspectj>1.8.2</version.aspectj>
         <version.servlet>2.5</version.servlet>
         <version.commons.lang3>3.3.1</version.commons.lang3>
-        <version.fastjson>1.2.7</version.fastjson>
+        <version.fastjson>1.2.49</version.fastjson>
     </properties>
 
     <dependencies>
